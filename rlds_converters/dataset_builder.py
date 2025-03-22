@@ -62,6 +62,8 @@ class MultiThreadedSplitBuilder(split_builder_lib.SplitBuilder):
             else:
                 total_num_examples = None
 
+        print(f"disable_shuffling: {disable_shuffling}")
+        # exit(1)
         serialized_info = self._features.get_serialized_info()
         writer = writer_lib.Writer(
             serializer=example_serializer.ExampleSerializer(serialized_info),
@@ -209,7 +211,9 @@ class MultiThreadedDatasetBuilder(tfds.core.GeneratorBasedBuilder):
                 split_name=split_name,
                 generator=generator,
                 filename_template=filename_template,
-                disable_shuffling=self.info.disable_shuffling,
+                # temporary change
+                disable_shuffling=True,
+                # disable_shuffling=self.info.disable_shuffling,
             )
             split_infos.append(split_info)
 
