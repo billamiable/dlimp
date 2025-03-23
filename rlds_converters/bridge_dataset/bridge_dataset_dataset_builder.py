@@ -21,6 +21,23 @@ TRAIN_PROPORTION = 0.9
 ORIG_NAMES = [f"images{i}" for i in range(N_VIEWS)]
 NEW_NAMES = [f"image_{i}" for i in range(N_VIEWS)]
 
+# start_image_id, end_image_id, gripper_min, gripper_max
+# guideline for selecting start and end image id (id starts from 0):
+#     1. gripper is inside view (at least partially seen)
+#     2. aviod too large motion (normally after grasping, the motion will become large)
+valid_image_ids = {
+    "20250321_085908": [3, 29, 0.08130098134279251, 2.0923497676849365],
+    "20250321_091158": [1, 24, 0.07669904083013535, 1.4097284078598022],
+    "20250321_091510": [2, 23, 0.07976700365543365, 1.402058482170105],
+    "20250321_091730": [1, 29, 0.06289321184158325, 1.4005244970321655],
+    "20250321_091936": [2, 27, 0.0951068103313446, 1.418932318687439],
+    "20250321_092140": [3, 26, 0.07363107800483704, 1.4127963781356812],
+    "20250321_092359": [1, 21, 0.07516506314277649, 1.4296700954437256],
+    "20250321_092553": [2, 22, 0.07976700365543365, 1.4388740062713623],
+    "20250321_092800": [1, 22, 0.07516506314277649, 1.4127963781356812],
+    "20250321_093013": [1, 24, 0.0782330259680748, 1.4173983335494995],
+}
+
 
 def read_image(path: str) -> np.ndarray:
     with Image.open(path) as im:
@@ -64,16 +81,25 @@ def process_images(path):  # processes images at a trajectory level
     return d
 '''
 
-def process_images(path):
-    folders = [f for f in os.listdir(path) if os.path.isdir(os.path.join(path, f))]
-    # print(f"folders: {folders}")
-    # exit(1)
+def process_images(path, use_valid_list=False):
     image_dict = {}
-    for folder in folders:
-        folder_path = os.path.join(path, folder)
-        image_paths = sorted(glob.glob(os.path.join(folder_path, '*.jpg')), key=lambda x: os.path.basename(x))
-        images = [read_image(path) for path in image_paths]
-        image_dict["images0"] = images
+    folder_path = f"{path}/images"
+    image_paths = sorted(glob.glob(os.path.join(folder_path, '*.jpg')), key=lambda x: os.path.basename(x))
+    images = []
+    for id, image_path in enumerate(image_paths):
+        if use_valid_list:
+            traj_name = path.split("/")[-1]
+            # print(f"traj_name: {traj_name}")
+            # exit(1)
+            if traj_name not in valid_image_ids:
+                    raise ValueError(f"no valid image ids available, please check your setup")
+            start_image_id, end_image_id = valid_image_ids[traj_name][0], valid_image_ids[traj_name][1]
+            if id < start_image_id or id > end_image_id:
+                print(f"skip processing image index {id}")
+                continue
+        image = read_image(image_path)
+        images.append(image)
+    image_dict["images0"] = images
     return image_dict
 
 
@@ -98,7 +124,8 @@ def matrix_to_xyz_rpy(matrix):
     state = [x, y, z, roll, pitch, yaw]
     return state
 
-def process_pkl(file_path):
+def process_pkl(path, use_valid_list=False):
+    file_path = f"{path}/tfs.pkl"
     with open(file_path, 'rb') as file:
         print(f"File content read successfully from {file_path}.")
         tfs = pkl.load(file)
@@ -109,10 +136,18 @@ def process_pkl(file_path):
             # # "20250319_124721.jpg" has same state as "20250319_124724.jpg", skip no movement frame
             # if id == 9:
             #     continue
+            if use_valid_list:
+                traj_name = path.split("/")[-1]
+                if traj_name not in valid_image_ids:
+                    raise ValueError(f"no valid image ids available, please check your setup")
+                start_image_id, end_image_id = valid_image_ids[traj_name][0], valid_image_ids[traj_name][1]
+                if id < start_image_id or id > end_image_id:
+                    print(f"skip processing pkl data index {id}")
+                    continue
             print(f"id: {id}")
             state_matrix, gripper = item[0], normalize_gripper(item[1])
             # print(f"state_matrix: {state_matrix}")
-            print(f"gripper: {gripper}")
+            # print(f"gripper: {gripper}")
             state = matrix_to_xyz_rpy(state_matrix)
             state.append(0.0)
             action = np.asarray([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, gripper])
@@ -140,6 +175,7 @@ def get_movement_action_statistics(states):
     q99 = np.quantile(movement_actions, 0.99, axis=0).tolist()
     print(f"q01: {q01}")
     print(f"q99: {q99}")
+    return movement_actions
 
 def process_depth(path):
     depth_path = os.path.join(path, "depth_images0")
@@ -499,9 +535,9 @@ class BridgeDataset(MultiThreadedDatasetBuilder):
 
         out = dict()
 
-        out["images"] = process_images(path)
+        out["images"] = process_images(path, use_valid_list=True)
         out["depth"] = None
-        out["state"], out["actions"] =  process_pkl(f"{path}/tfs.pkl")
+        out["state"], out["actions"] =  process_pkl(path, use_valid_list=True)
         # test_images = out["images"]
         # test_state = out["state"]
         # test_action = out["actions"]
@@ -511,7 +547,9 @@ class BridgeDataset(MultiThreadedDatasetBuilder):
         # exit(1)
 
         # temporary change
-        out["lang"] = "pick up banana"
+        # out["lang"] = "pick up banana"
+        # TODO check if need to use "pick up red block"
+        out["lang"] = "pick up block"
 
         assert len(out["actions"]) == len(out["state"]) == len(out["images"]["images0"])
 
@@ -547,11 +585,11 @@ class BridgeDataset(MultiThreadedDatasetBuilder):
 
         # test_state = []
         for i in range(len(out["actions"])):
-
+            # temporary change for pick up banana, for pick up block, will use valid_image_ids instead
             # # "20250319_124721.jpg" has same state as "20250319_124724.jpg", skip no movement frame
-            if i == 9:
-                print(f"skip frame due to static movement")
-                continue
+            # if i == 9:
+            #     print(f"skip frame due to static movement")
+            #     continue
             observation = {
                 "state": out["state"][i].astype(np.float32),
             }
@@ -598,7 +636,10 @@ class BridgeDataset(MultiThreadedDatasetBuilder):
         all_inputs = []
         for folder in all_tasks:
             all_trajs = glob.glob(os.path.join(folder, '*', ''))
+            # remove the ending "/"
+            all_trajs = [traj.rstrip('/') for traj in all_trajs]
             all_inputs.extend(all_trajs)
+        all_inputs = sorted(all_inputs)
 
         train_inputs += all_inputs[: int(len(all_inputs) * TRAIN_PROPORTION)]
         val_inputs += all_inputs[int(len(all_inputs) * TRAIN_PROPORTION) :]
