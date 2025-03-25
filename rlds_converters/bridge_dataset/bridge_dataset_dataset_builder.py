@@ -25,7 +25,10 @@ NEW_NAMES = [f"image_{i}" for i in range(N_VIEWS)]
 # guideline for selecting start and end image id (id starts from 0):
 #     1. gripper is inside view (at least partially seen)
 #     2. aviod too large motion (normally after grasping, the motion will become large)
+#            guideline 2 is actually no longer followed for pick up towel since large motion for xyz is within bridge dataset range
+#            the biggest issue comes from roll,pitch,yaw large motion
 valid_image_ids = {
+    # pick up block
     "20250321_085908": [3, 29, 0.08130098134279251, 2.0923497676849365],
     "20250321_091158": [1, 24, 0.07669904083013535, 1.4097284078598022],
     "20250321_091510": [2, 23, 0.07976700365543365, 1.402058482170105],
@@ -36,6 +39,18 @@ valid_image_ids = {
     "20250321_092553": [2, 22, 0.07976700365543365, 1.4388740062713623],
     "20250321_092800": [1, 22, 0.07516506314277649, 1.4127963781356812],
     "20250321_093013": [1, 24, 0.0782330259680748, 1.4173983335494995],
+    # pick up towel
+    "20250325_095001": [4, 27, -0.4939418137073517, 1.0354371070861816],
+    "20250325_095309": [7, 29, -0.49087387323379517, 1.4173983335494995],
+    "20250325_095443": [3, 26, -0.3850291967391968, 1.4419419765472412],
+    # "20250325_095602": [11, 26, -0.4325825870037079, 1.4220002889633179], # skip for now due to too many times not seen gripper
+    "20250325_095707": [5, 25, -0.42031073570251465, 1.4051264524459839], # once not seen TODO see if need to move to validation set
+    "20250325_095802": [5, 26, -0.4832039475440979, 1.4434759616851807],
+    "20250325_095900": [5, 30, -0.4279806613922119, 1.4035924673080444],
+    "20250325_095956": [3, 26, -0.40957286953926086, 1.4434759616851807],
+    "20250325_100113": [4, 32, -0.39576706290245056, 1.4127963781356812],
+    "20250325_100213": [6, 30, -0.38963112235069275, 1.4358060359954834],
+    "20250325_100350": [6, 28, -0.4279806613922119, 1.4035924673080444],
 }
 
 
@@ -559,7 +574,8 @@ class BridgeDataset(MultiThreadedDatasetBuilder):
         # temporary change
         # out["lang"] = "pick up banana"
         # TODO check if need to use "pick up red block"
-        out["lang"] = "pick up block"
+        # out["lang"] = "pick up block"
+        out["lang"] = "pick up towel"
 
         # temporary change
         # img_num = len(out["images"]["images0"])
