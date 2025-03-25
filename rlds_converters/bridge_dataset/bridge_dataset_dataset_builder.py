@@ -44,6 +44,10 @@ def read_image(path: str) -> np.ndarray:
         # depth should be uint16 (I;16), but PIL has a bug where it reads as int32 (I)
         # there are also few trajectories where it's uint8 (L) for some reason
         # we just cast to uint16 in both cases
+        # test_img = np.asarray(im)
+        # print(f"test_img: {test_img}")
+        # print(f"test img size: {np.shape(test_img)}")
+        # exit(1)
         assert im.mode == "RGB" or im.mode == "I" or im.mode == "L", (path, im.mode)
         assert im.size == (640, 480), (path, im.size)
         arr = np.array(im)
@@ -98,6 +102,9 @@ def process_images(path, use_valid_list=False):
                 print(f"skip processing image index {id}")
                 continue
         image = read_image(image_path)
+        # print(f"test_img: {image}")
+        # print(f"test img size: {np.shape(image)}")
+        # exit(1)
         images.append(image)
     image_dict["images0"] = images
     return image_dict
@@ -224,6 +231,7 @@ class BridgeDataset(MultiThreadedDatasetBuilder):
     }
     MANUAL_DOWNLOAD_INSTRUCTIONS = "You can download the raw BridgeData from https://rail.eecs.berkeley.edu/datasets/bridge_release/data/."
 
+    # temporary change, for testing
     NUM_WORKERS = 16
     CHUNKSIZE = 1000
 
@@ -239,7 +247,8 @@ class BridgeDataset(MultiThreadedDatasetBuilder):
                                     "image_0": tfds.features.Image(
                                         shape=IMAGE_SIZE + (3,),
                                         dtype=np.uint8,
-                                        encoding_format="jpeg",
+                                        # [VIP] using jpeg caused image precision loss
+                                        encoding_format="png", # jpeg
                                         doc="Main camera RGB observation (fixed position).",
                                     ),
                                     "image_1": tfds.features.Image(
@@ -535,6 +544,7 @@ class BridgeDataset(MultiThreadedDatasetBuilder):
 
         out = dict()
 
+        # temporary change for use_valid_list=False
         out["images"] = process_images(path, use_valid_list=True)
         out["depth"] = None
         out["state"], out["actions"] =  process_pkl(path, use_valid_list=True)
@@ -550,6 +560,11 @@ class BridgeDataset(MultiThreadedDatasetBuilder):
         # out["lang"] = "pick up banana"
         # TODO check if need to use "pick up red block"
         out["lang"] = "pick up block"
+
+        # temporary change
+        # img_num = len(out["images"]["images0"])
+        # out["actions"] = out["actions"][:img_num]
+        # out["state"] = out["state"][:img_num]
 
         assert len(out["actions"]) == len(out["state"]) == len(out["images"]["images0"])
 
@@ -594,6 +609,11 @@ class BridgeDataset(MultiThreadedDatasetBuilder):
                 "state": out["state"][i].astype(np.float32),
             }
             # test_state.append(out["state"][i].astype(np.float32))
+
+            # test_image = out["images"]["images0"][0]
+            # print(f"test_img: {test_image}")
+            # print(f"test img size: {np.shape(test_image)}")
+            # exit(1)
 
             for orig_key in out["images"]:
                 new_key = orig_to_new[orig_key]
