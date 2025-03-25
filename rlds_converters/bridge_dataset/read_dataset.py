@@ -18,11 +18,11 @@ print(type(ds_train))
 # print(f"ds_train: {ds_train}")
 ds_train_dataset = ds_train[0]
 
-image_file = "/mnt/sh_flex_storage/home/yujiewan/embodied_ai/data/flex-test/pick-up-block/20250321_085908/images/20250321_090137.jpg"
-image = Image.open(image_file)
-test_img = np.array(image)
-print(f"test_img: {test_img}")
-print(f"image: {np.shape(test_img)}")
+# image_file = "/mnt/sh_flex_storage/home/yujiewan/embodied_ai/data/flex-test/pick-up-block/20250321_085908/images/20250321_090137.jpg"
+# image = Image.open(image_file)
+# test_img = np.array(image)
+# print(f"test_img: {test_img}")
+# print(f"image: {np.shape(test_img)}")
 # exit(1)
 
 for sample in ds_train_dataset.take(1):
@@ -35,8 +35,12 @@ for sample in ds_train_dataset.take(1):
         print(f"Image shape: {image.shape}, dtype: {image.dtype}")
         print(f"image: {image}")
 
-        plt.imshow(image)
-        plt.axis('off')
-        plt.show()
+        # plt.imshow(image)
+        # plt.axis('off')
+        # plt.show()
+
+        image_pil = Image.fromarray(image)  # 转换为 PIL 图像
+        # jpg still has precision loss
+        image_pil.save("/mnt/sh_flex_storage/home/yujiewan/embodied_ai/data/flex-test/20250321_090137.png")
 
         break
