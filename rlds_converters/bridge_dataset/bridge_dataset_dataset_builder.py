@@ -12,6 +12,12 @@ from PIL import Image
 from scipy.spatial.transform import Rotation as R
 import pickle as pkl
 
+import sys
+openvla_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../openvla/test"))
+sys.path.append(openvla_path)
+
+from parse_data import valid_image_ids
+
 # we ignore the small amount of data that contains >4 views
 N_VIEWS = 4
 IMAGE_SIZE = (480, 640)
@@ -20,39 +26,6 @@ TRAIN_PROPORTION = 0.9
 
 ORIG_NAMES = [f"images{i}" for i in range(N_VIEWS)]
 NEW_NAMES = [f"image_{i}" for i in range(N_VIEWS)]
-
-# start_image_id, end_image_id, gripper_min, gripper_max
-# guideline for selecting start and end image id (id starts from 0):
-#     1. gripper is inside view (at least partially seen)
-#     2. aviod too large motion (normally after grasping, the motion will become large)
-#            guideline 2 is actually no longer followed for pick up towel since large motion for xyz is within bridge dataset range
-#            the biggest issue comes from roll,pitch,yaw large motion
-valid_image_ids = {
-    # pick up block
-    "20250321_085908": [3, 29, 0.08130098134279251, 2.0923497676849365],
-    "20250321_091158": [1, 24, 0.07669904083013535, 1.4097284078598022],
-    "20250321_091510": [2, 23, 0.07976700365543365, 1.402058482170105],
-    "20250321_091730": [1, 29, 0.06289321184158325, 1.4005244970321655],
-    "20250321_091936": [2, 27, 0.0951068103313446, 1.418932318687439],
-    "20250321_092140": [3, 26, 0.07363107800483704, 1.4127963781356812],
-    "20250321_092359": [1, 21, 0.07516506314277649, 1.4296700954437256],
-    "20250321_092553": [2, 22, 0.07976700365543365, 1.4388740062713623],
-    "20250321_092800": [1, 22, 0.07516506314277649, 1.4127963781356812],
-    "20250321_093013": [1, 24, 0.0782330259680748, 1.4173983335494995],
-    # pick up towel
-    "20250325_095001": [4, 27, -0.4939418137073517, 1.0354371070861816],
-    "20250325_095309": [7, 29, -0.49087387323379517, 1.4173983335494995],
-    "20250325_095443": [3, 26, -0.3850291967391968, 1.4419419765472412],
-    # "20250325_095602": [11, 26, -0.4325825870037079, 1.4220002889633179], # skip for now due to too many times not seen gripper
-    # rename from "20250325_095707" to "20250325_100460"
-    "20250325_100460": [5, 25, -0.42031073570251465, 1.4051264524459839], # once not seen TODO see if need to move to validation set
-    "20250325_095802": [5, 26, -0.4832039475440979, 1.4434759616851807],
-    "20250325_095900": [5, 30, -0.4279806613922119, 1.4035924673080444],
-    "20250325_095956": [3, 26, -0.40957286953926086, 1.4434759616851807],
-    "20250325_100113": [4, 32, -0.39576706290245056, 1.4127963781356812],
-    "20250325_100213": [6, 30, -0.38963112235069275, 1.4358060359954834],
-    "20250325_100350": [6, 28, -0.4279806613922119, 1.4035924673080444],
-}
 
 
 def read_image(path: str) -> np.ndarray:
@@ -112,10 +85,10 @@ def process_images(path, use_valid_list=False):
             # print(f"traj_name: {traj_name}")
             # exit(1)
             if traj_name not in valid_image_ids:
-                    raise ValueError(f"no valid image ids available, please check your setup")
+                    raise ValueError(f"no valid image ids available for {traj_name}, please check your setup")
             start_image_id, end_image_id = valid_image_ids[traj_name][0], valid_image_ids[traj_name][1]
             if id < start_image_id or id > end_image_id:
-                print(f"skip processing image index {id}")
+                # print(f"skip processing image index {id}")
                 continue
         image = read_image(image_path)
         # print(f"test_img: {image}")
@@ -150,7 +123,7 @@ def matrix_to_xyz_rpy(matrix):
 def process_pkl(path, use_valid_list=False):
     file_path = f"{path}/tfs.pkl"
     with open(file_path, 'rb') as file:
-        print(f"File content read successfully from {file_path}.")
+        # print(f"File content read successfully from {file_path}.")
         tfs = pkl.load(file)
 
         states = []
@@ -162,19 +135,19 @@ def process_pkl(path, use_valid_list=False):
             if use_valid_list:
                 traj_name = path.split("/")[-1]
                 if traj_name not in valid_image_ids:
-                    raise ValueError(f"no valid image ids available, please check your setup")
+                    raise ValueError(f"no valid image ids available for {traj_name}, please check your setup")
                 start_image_id, end_image_id = valid_image_ids[traj_name][0], valid_image_ids[traj_name][1]
                 if id < start_image_id or id > end_image_id:
-                    print(f"skip processing pkl data index {id}")
+                    # print(f"skip processing pkl data index {id}")
                     continue
-            print(f"id: {id}")
+            # print(f"id: {id}")
             state_matrix, gripper = item[0], normalize_gripper(item[1])
             # print(f"state_matrix: {state_matrix}")
             # print(f"gripper: {gripper}")
             state = matrix_to_xyz_rpy(state_matrix)
             state.append(0.0)
             action = np.asarray([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, gripper])
-            print(f"state: {state}, action: {action}")
+            # print(f"state: {state}, action: {action}")
             states.append(state)
             actions.append(action)
 
@@ -555,7 +528,7 @@ class BridgeDataset(MultiThreadedDatasetBuilder):
     def _process_example(cls, example_input):
         """Process a single example."""
         path = example_input
-        print(f"path: {path}")
+        # print(f"path: {path}")
         # exit(1)
 
         out = dict()
@@ -585,7 +558,7 @@ class BridgeDataset(MultiThreadedDatasetBuilder):
 
         assert len(out["actions"]) == len(out["state"]) == len(out["images"]["images0"])
 
-        print("successfully pass assert")
+        # print("successfully pass assert")
         # exit(1)
 
         # assemble episode
@@ -609,7 +582,7 @@ class BridgeDataset(MultiThreadedDatasetBuilder):
         episode_metadata["has_depth_0"] = out["depth"] is not None
 
         instruction = out["lang"]
-        print(f"instruction: {instruction}")
+        # print(f"instruction: {instruction}")
         # action_size = len(out["actions"])
         # img_size = len(out["images"]["images0"])
         # print(f"action size: {action_size}, img size: {img_size}")
@@ -681,9 +654,9 @@ class BridgeDataset(MultiThreadedDatasetBuilder):
         train_inputs += all_inputs[: int(len(all_inputs) * TRAIN_PROPORTION)]
         val_inputs += all_inputs[int(len(all_inputs) * TRAIN_PROPORTION) :]
 
-        print(f"all_inputs: {all_inputs}")
-        print(f"train_inputs: {train_inputs}")
-        print(f"val_inputs: {val_inputs}")
+        print(f"all_inputs: {all_inputs}, len: {len(all_inputs)}")
+        print(f"train_inputs: {train_inputs}, len: {len(train_inputs)}")
+        print(f"val_inputs: {val_inputs}, len: {len(val_inputs)}")
         # exit(1)
 
         logging.info(
