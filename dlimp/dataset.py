@@ -149,6 +149,7 @@ class DLataset(tf.data.Dataset):
                 skip_prefetch=True,
                 num_parallel_calls_for_interleave_files=num_parallel_reads,
                 interleave_cycle_length=num_parallel_reads,
+                add_tfds_id=True,
             ),
         )._apply_options()
 
